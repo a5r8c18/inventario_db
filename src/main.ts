@@ -12,7 +12,7 @@ async function bootstrap() {
   });
   // Habilitar CORS
   app.enableCors({
-    origin: 'http://localhost:4200', // Permitir solicitudes desde el frontend Angular
+    origin: [process.env.FRONTEND_URL, 'http://localhost:4200'], // Permitir solicitudes desde ambos URLs
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS', // Métodos permitidos
     allowedHeaders: 'Content-Type, Accept, Authorization', // Cabeceras permitidas
     credentials: true, // Permitir credenciales (si es necesario)
