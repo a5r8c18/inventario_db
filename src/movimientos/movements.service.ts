@@ -44,7 +44,7 @@ export class MovementsService {
     });
     return this.movementsRepository.save(movement);
   }
-
+  
   async createReturn(purchaseId: string, reason: string): Promise<Movement> {
     if (!reason) {
       throw new BadRequestException(
@@ -194,7 +194,10 @@ export class MovementsService {
       });
     }
 
+    // Ordenar por fecha de creación
     queryBuilder.orderBy('movement.createdAt', 'DESC');
+    
+    // Obtener movimientos con su ID de compra
     return queryBuilder.getMany();
   }
 
