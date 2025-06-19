@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -12,7 +11,7 @@ async function bootstrap() {
   });
   // Habilitar CORS
   app.enableCors({
-    origin: [process.env.FRONTEND_URL, 'http://localhost:4200'], // Permitir solicitudes desde ambos URLs
+    origin: [process.env.FRONTEND_URL || 'http://localhost:4200'], // Permitir solicitudes desde ambos URLs
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS', // Métodos permitidos
     allowedHeaders: 'Content-Type, Accept, Authorization', // Cabeceras permitidas
     credentials: true, // Permitir credenciales (si es necesario)
