@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { MovementsService } from './movements.service';
 import { FilterMovementDto } from './dtos/filter-movements.dto';
-import { Inject } from '@nestjs/common';
+import { Inject, forwardRef } from '@nestjs/common';
 import { PurchasesService } from '../compras/purchases.service';
 import { Movement } from './entity/movement.entity';
 
@@ -16,7 +16,7 @@ import { Movement } from './entity/movement.entity';
 export class MovementsController {
   constructor(
     private readonly movementsService: MovementsService,
-    @Inject('PurchasesService')
+    @Inject(forwardRef(() => PurchasesService))
     private readonly purchasesService: PurchasesService,
   ) {}
 
