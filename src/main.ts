@@ -17,6 +17,8 @@ async function bootstrap() {
     allowedHeaders: 'Content-Type, Accept, Authorization', // Cabeceras permitidas
     credentials: true, // Permitir credenciales (si es necesario)
   });
-  await app.listen(3000);
+  const port = process.env.PORT || 3000; // Usa puerto dinámico de Render
+  await app.listen(port);
+  console.log(`Aplicación corriendo en el puerto ${port}`);
 }
 bootstrap();
