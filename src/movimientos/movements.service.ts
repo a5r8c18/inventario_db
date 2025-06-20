@@ -122,7 +122,7 @@ export class MovementsService {
       ...movementData,
       product: inventoryProduct,
       createdAt: new Date(),
-      quantity: movementData.quantity, // Usar la cantidad directa
+      quantity: -movementData.quantity, // Usar la cantidad directa
     });
     await this.movementsRepository.save(movement);
 
