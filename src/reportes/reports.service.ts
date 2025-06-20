@@ -1,20 +1,19 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { ReceptionReport } from './reception-report.entity';
-import { DeliveryReport } from '../DeliveryReport/delivery-report.entity';
 import * as XLSX from 'xlsx';
-import { User } from '../auth/entities/user.entity';
-import * as fs from 'fs';
-import * as path from 'path';
-import { Purchase } from 'src/compras/entity/purchase.entity';
+import * as PDFKit from 'pdfkit';
+import { Purchase } from '../compras/entity/purchase.entity';
+import { DeliveryReport } from 'src/DeliveryReport/delivery-report.entity';
 
 @Injectable()
 export class ReportsService {
@@ -26,8 +25,9 @@ export class ReportsService {
   ) {}
 
   async getAllDeliveryReports(filters?: any): Promise<DeliveryReport[]> {
-    const queryBuilder =
-      this.deliveryReportRepository.createQueryBuilder('report');
+    const queryBuilder = this.deliveryReportRepository.createQueryBuilder('report');
+
+    // Filtrar por fechas
     if (filters.fromDate) {
       queryBuilder.andWhere('report.date >= :fromDate', {
         fromDate: new Date(filters.fromDate),
@@ -38,32 +38,44 @@ export class ReportsService {
         toDate: new Date(filters.toDate),
       });
     }
+
+    // Filtrar por entidad
     if (filters.entity) {
       queryBuilder.andWhere('report.entity LIKE :entity', {
         entity: `%${filters.entity}%`,
       });
     }
+
+    // Filtrar por almacén
     if (filters.warehouse) {
       queryBuilder.andWhere('report.warehouse LIKE :warehouse', {
         warehouse: `%${filters.warehouse}%`,
       });
     }
+
+    // Filtrar por documento
     if (filters.document) {
       queryBuilder.andWhere('report.document LIKE :document', {
         document: `%${filters.document}%`,
       });
     }
+
+    // Filtrar por código
     if (filters.code) {
-      queryBuilder.andWhere('report.code = :code', { code: filters.code });
+      queryBuilder.andWhere('report.code = :code', {
+        code: filters.code,
+      });
     }
+
     queryBuilder.orderBy('report.date', 'DESC');
     return queryBuilder.getMany();
   }
 
   async getAllReceptionReports(filters?: any): Promise<ReceptionReport[]> {
-    const queryBuilder = this.reportsRepository
-      .createQueryBuilder('report')
+    const queryBuilder = this.reportsRepository.createQueryBuilder('report')
       .leftJoinAndSelect('report.purchase', 'purchase');
+
+    // Filtrar por fechas
     if (filters.fromDate) {
       queryBuilder.andWhere('report.createdAt >= :fromDate', {
         fromDate: new Date(filters.fromDate),
@@ -74,28 +86,38 @@ export class ReportsService {
         toDate: new Date(filters.toDate),
       });
     }
+
+    // Filtrar por entidad
     if (filters.entity) {
       queryBuilder.andWhere('purchase.entity LIKE :entity', {
         entity: `%${filters.entity}%`,
       });
     }
+
+    // Filtrar por almacén
     if (filters.warehouse) {
       queryBuilder.andWhere('purchase.warehouse LIKE :warehouse', {
         warehouse: `%${filters.warehouse}%`,
       });
     }
+
+    // Filtrar por documento
     if (filters.document) {
       queryBuilder.andWhere('purchase.document LIKE :document', {
         document: `%${filters.document}%`,
       });
     }
+
+    // Filtrar por código
     if (filters.code) {
-      queryBuilder.andWhere('report.code = :code', { code: filters.code });
+      queryBuilder.andWhere('report.code = :code', {
+        code: filters.code,
+      });
     }
+
     queryBuilder.orderBy('report.createdAt', 'DESC');
     return queryBuilder.getMany();
   }
-
   async createReceptionReport(purchase: Purchase): Promise<ReceptionReport> {
     const report = this.reportsRepository.create({
       purchase,
@@ -126,15 +148,41 @@ export class ReportsService {
     await this.reportsRepository.delete({ purchase: { id: purchaseId } });
   }
 
+  async getAllReports(filters: any = {}): Promise<ReceptionReport[]> {
+    const query = this.reportsRepository
+      .createQueryBuilder('report')
+      .leftJoinAndSelect('report.purchase', 'purchase');
+
+    // Filtro por fecha (rango)
+    if (filters.startDate && filters.endDate) {
+      query.andWhere('report.date BETWEEN :start AND :end', {
+        start: filters.startDate,
+        end: filters.endDate,
+      });
+    } else if (filters.startDate) {
+      query.andWhere('report.date >= :start', {
+        start: filters.startDate,
+      });
+    } else if (filters.endDate) {
+      query.andWhere('report.date <= :end', { end: filters.endDate });
+    }
+
+    // Filtrar por código
+    if (filters.code) {
+      query.andWhere('report.code = :code', {
+        code: filters.code,
+      });
+    }
+
+    return query.getMany();
+  }
   async exportToExcel(reportId: string): Promise<Buffer> {
     const report = await this.reportsRepository.findOne({
       where: { id: reportId },
       relations: ['purchase'],
     });
     if (!report || !report.details) {
-      throw new BadRequestException(
-        'Informe o detalles del informe no encontrados',
-      );
+      throw new Error('Report or report details not found');
     }
 
     const data: Array<{
@@ -232,26 +280,13 @@ export class ReportsService {
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 
-  async exportToPDF(
-    reportId: string,
-    additionalData: {
-      warehouseManager: string;
-      transporterName: string;
-      transporterPlate: string;
-      transporterCI: string;
-      signature: string; // Base64 de la imagen o texto
-      receptor?: string; // Nombre del receptor
-    },
-    _user: User,
-  ): Promise<Buffer> {
+  async exportToPDF(reportId: string): Promise<Buffer> {
     const report = await this.reportsRepository.findOne({
       where: { id: reportId },
       relations: ['purchase'],
     });
     if (!report || !report.details) {
-      throw new BadRequestException(
-        'Informe o detalles del informe no encontrados',
-      );
+      throw new Error('Report or report details not found');
     }
 
     const PDFKit = require('pdfkit');
@@ -270,7 +305,7 @@ export class ReportsService {
     doc.text(`Tipo de Documento: ${report.details.documentType || 'FACTURA'}`);
     doc.moveDown();
 
-    // Tabla de productos
+    // --- Tabla manual ---
     const tableTop = doc.y + 10;
     const colWidths = [60, 120, 40, 40, 60, 60];
     const startX = doc.x;
@@ -333,20 +368,17 @@ export class ReportsService {
       0,
     );
     x = startX;
-    const totalRow = ['', '', '', '', 'TOTAL', totalAmount.toFixed(2)];
+    const totalRow = ['TOTAL', '', '', '', '', totalAmount.toFixed(2)];
     totalRow.forEach((cell, i) => {
-      doc.font(i === 4 || i === 5 ? 'Helvetica-Bold' : 'Helvetica');
-      doc.text(cell, x + 2, y + 2, {
-        width: colWidths[i] - 4,
-        align: i === 5 ? 'right' : 'left',
-      });
+      doc.font(i === 0 || i === 5 ? 'Helvetica-Bold' : 'Helvetica');
+      doc.text(cell, x + 2, y + 2, { width: colWidths[i] - 4, align: 'left' });
       x += colWidths[i];
     });
     y += rowHeight;
 
     doc.moveDown(2);
 
-    // Cumplimiento
+    // --- Texto final ---
     doc.font('Helvetica').fontSize(10);
     doc.text(
       `Los materiales recibidos ${report.details.complies ? 'SÍ' : 'NO'} corresponden a la calidad, especificaciones, estado de conservación y cantidades que muestran los documentos del suministrador.`,
@@ -354,45 +386,26 @@ export class ReportsService {
     );
 
     doc.moveDown(2);
+    doc.text('Jefe de Almacén: __________________', { align: 'left' });
+    doc.text(`Transportista: ${report.details.transportista?.nombre || '-'}`, {
+      align: 'left',
+    });
+    doc.text(`CI: ${report.details.transportista?.ci || '-'}`, {
+      align: 'left',
+    });
+    doc.text(`Chapa: ${report.details.transportista?.chapa || '-'}`, {
+      align: 'left',
+    });
+    doc.text('Firma: __________________', { align: 'left' });
 
-    // Firmas
-    doc.text(`Jefe de Almacén: ${additionalData.warehouseManager || '-'}`);
-    doc.text(`Transportista: ${additionalData.transporterName || '-'}`);
-    doc.text(`CI: ${additionalData.transporterCI || '-'}`);
-    doc.text(`Chapa: ${additionalData.transporterPlate || '-'}`);
-
-    // Firma electrónica (imagen o texto)
-    if (
-      additionalData.signature &&
-      additionalData.signature.startsWith('data:image')
-    ) {
-      try {
-        const imagePath = path.join(__dirname, 'temp_signature.png');
-        const base64Data = additionalData.signature.replace(
-          /^data:image\/png;base64,/,
-          '',
-        );
-        fs.writeFileSync(imagePath, base64Data, 'base64');
-        doc.image(imagePath, doc.x, doc.y, { width: 100 });
-        doc.moveDown(3);
-        fs.unlinkSync(imagePath); // Eliminar archivo temporal
-      } catch (error) {
-        console.error('Error al procesar la firma:', error);
-        doc.text('Firma: [Error al cargar la firma]', { align: 'left' });
-      }
-    } else {
-      doc.text(`Firma: ${additionalData.signature || '-'}`);
-    }
-
-    // Firmas adicionales
-    const yFirmas = doc.y + 20;
+    const yFirmas = doc.y + 20; // Puedes ajustar el valor para la separación vertical
     const pageWidth =
       doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const colWidth = pageWidth / 3;
 
     doc.font('Helvetica').fontSize(10);
     doc.text(
-      `Recepcionado: ${additionalData.receptor || '-'}`,
+      'Recepcionado: __________________',
       doc.page.margins.left,
       yFirmas,
       { width: colWidth, align: 'left' },
@@ -418,6 +431,8 @@ export class ReportsService {
     });
   }
 
+  ////////************************* DELIVERY ********************/////////////////
+
   async createDeliveryReport(data: {
     entity: string;
     warehouse: string;
@@ -432,13 +447,18 @@ export class ReportsService {
     }>;
   }): Promise<DeliveryReport> {
     const report = this.deliveryReportRepository.create({
-      code: `VE-${Date.now()}`,
+      code: `VE-${Date.now()}`, // <--- Genera un código único
       entity: data.entity,
       warehouse: data.warehouse,
       document: data.document,
       products: data.products,
       date: new Date(),
+      // Add other properties here only if they exist in DeliveryReport entity
     });
+    // If you need to set createdAt or details, do it after creation if those properties exist
+    // For example:
+    // report.createdAt = new Date();
+    // report.details = { ... };
     return this.deliveryReportRepository.save(report);
   }
 }

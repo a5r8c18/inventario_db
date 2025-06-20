@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Inject,
   forwardRef,
@@ -25,24 +26,7 @@ export class PurchasesService {
     private inventoryService: InventoryService,
   ) {}
 
-  async createPurchase(purchaseData: {
-    products: Array<{ expirationDate?: string | null; [key: string]: any }>;
-  }): Promise<Purchase> {
-    // Validar y limpiar las fechas de vencimiento
-    purchaseData.products = purchaseData.products.map((product) => {
-      const { expirationDate, ...rest } = product;
-      let validExpirationDate: string | null = null;
-
-      if (expirationDate) {
-        const date = new Date(expirationDate);
-        if (!isNaN(date.getTime())) {
-          validExpirationDate = date.toISOString();
-        }
-      }
-
-      return { ...rest, expirationDate: validExpirationDate };
-    });
-
+  async createPurchase(purchaseData: any): Promise<Purchase> {
     // Guardar la compra en la base de datos
     const savedPurchase = await this.purchasesRepository.save(purchaseData);
 

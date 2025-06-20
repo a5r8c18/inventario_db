@@ -34,11 +34,7 @@ export class Movement {
   createdAt: Date;
 
   @ManyToOne(() => Purchase, { nullable: true })
-  @JoinColumn({ name: 'purchaseId' })
   purchase: Purchase;
-
-  @Column({ nullable: true })
-  purchaseId: string;
 
   @Column({ nullable: true })
   label: string;

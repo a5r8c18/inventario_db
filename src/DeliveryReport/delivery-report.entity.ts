@@ -1,12 +1,8 @@
 /* eslint-disable prettier/prettier */
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { Purchase } from '../compras/entity/purchase.entity';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 @Entity()
 export class DeliveryReport {
-  @ManyToOne(() => Purchase, purchase => purchase.deliveryReport)
-  @JoinColumn({ name: 'purchaseId' })
-  purchase: Purchase;
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

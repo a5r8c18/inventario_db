@@ -41,7 +41,7 @@ export class InventoryService {
     if (type === 'entry') {
       inventory.entries = Number(inventory.entries) + validQuantity;
     } else if (type === 'exit' || type === 'return') {
-      inventory.exits = Number(inventory.exits) + validQuantity; // Sumar la cantidad a las salidas
+      inventory.exits = Number(inventory.exits) - validQuantity; // Negativo para restar
     }
 
     // Recalcular stock asegurando que sean números

@@ -45,10 +45,121 @@ export class MovementsService {
     return this.movementsRepository.save(movement);
   }
 
-  async findAll(filters: FilterMovementDto = {}): Promise<Movement[]> {
+  async createReturn(purchaseId: string, reason: string): Promise<Movement> {
+    if (!reason) {
+      throw new BadRequestException(
+        'El motivo de la devolución es obligatorio',
+      );
+    }
+
+    const purchase = await this.purchasesService.findOne(purchaseId);
+    if (!purchase) {
+      throw new NotFoundException('Compra no encontrada');
+    }
+
+    // Registrar devolución
+    for (const product of purchase.products) {
+      // Busca el producto en el inventario
+      const inventoryProduct = await this.inventoryService.findByCode(
+        product.code,
+      );
+      const movement = this.movementsRepository.create({
+        type: 'return',
+        product: inventoryProduct, // relación
+        productCode: inventoryProduct.productCode, // clave foránea
+        quantity: -product.quantity,
+        reason,
+        purchase,
+        createdAt: new Date(),
+      });
+      await this.movementsRepository.save(movement);
+
+      // Actualizar inventario
+      await this.inventoryService.updateInventory(
+        product.code,
+        product.description,
+        -product.quantity,
+        'return',
+      );
+    }
+
+    // Cancelar compra y limpiar productos
+    purchase.status = 'canceled';
+    purchase.products = [];
+    await this.purchasesService.updateById(purchase.id, purchase);
+
+    // Eliminar informe de recepción
+    await this.reportsService.deleteByPurchaseId(purchaseId);
+
+    const movement = await this.movementsRepository.findOne({
+      where: { purchase: { id: purchaseId }, type: 'return' },
+    });
+    if (!movement) {
+      throw new BadRequestException('No se pudo registrar la devolución');
+    }
+    return movement;
+  }
+
+  // The following code was outside of any method and caused an error.
+  // If you want to implement an "exit" movement, move this logic into a method, for example:
+
+  async registerExit({
+    movementData,
+  }: {
+    movementData: {
+      type: string;
+      productCode: string;
+      quantity: number;
+      label?: string;
+    };
+  }): Promise<Movement> {
+    const inventoryProduct = await this.inventoryService.findByCode(
+      movementData.productCode,
+    );
+
+    // 1. Registrar el movimiento de salida
+    const movement = this.movementsRepository.create({
+      ...movementData,
+      product: inventoryProduct,
+      createdAt: new Date(),
+      quantity: movementData.quantity, // Usar la cantidad directa
+    });
+    await this.movementsRepository.save(movement);
+
+    // 2. Actualizar inventario
+    await this.inventoryService.updateInventory(
+      movementData.productCode,
+      inventoryProduct.productDescription || '',
+      movementData.quantity,
+      'exit',
+    );
+
+    // 3. Generar vale de entrega SIEMPRE que haya salida
+    await this.reportsService.createDeliveryReport({
+      document: `VE-${Date.now()}`,
+      warehouse: inventoryProduct.warehouse || '',
+      products: [
+        {
+          code: inventoryProduct.productCode,
+          description:
+            inventoryProduct.productName ||
+            inventoryProduct.productDescription ||
+            '',
+          unit: inventoryProduct.productUnit || '',
+          quantity: movementData.quantity,
+          unitPrice: inventoryProduct.unitPrice || 0,
+          amount: (inventoryProduct.unitPrice || 0) * movementData.quantity,
+        },
+      ],
+      entity: '',
+    });
+
+    return movement;
+  }
+
+  async findAll(filters: FilterMovementDto): Promise<Movement[]> {
     const queryBuilder = this.movementsRepository.createQueryBuilder('movement');
     queryBuilder.leftJoinAndSelect('movement.product', 'product');
-    queryBuilder.leftJoinAndSelect('movement.purchase', 'purchase');
 
     // Filter by date range
     if (filters.fromDate) {
@@ -76,10 +187,7 @@ export class MovementsService {
       });
     }
 
-    // Ordenar por fecha de creación
     queryBuilder.orderBy('movement.createdAt', 'DESC');
-    
-    // Obtener movimientos con sus relaciones
     return queryBuilder.getMany();
   }
 
@@ -141,3 +249,4 @@ export class MovementsService {
     return movement;
   }
 }
+

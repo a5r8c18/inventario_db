@@ -1,28 +1,37 @@
 /* eslint-disable prettier/prettier */
-
-
-import { Controller, Get, Post, Param, Res, Query, Body, Request, UseGuards } from '@nestjs/common';
-import { User } from '../auth/entities/user.entity';
-
-interface AuthenticatedRequest extends Request {
-  user: User;
-}
-
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+import { Controller, Get, Param, Res, Query } from '@nestjs/common';
 import { ReportsService } from './reports.service';
-import { Response } from 'express';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { AuthService } from '../auth/auth.service';
 
 @Controller('reports')
 export class ReportsController {
-  constructor(
-    private readonly reportsService: ReportsService,
-    private readonly authService: AuthService
-  ) {}
+  constructor(private readonly reportsService: ReportsService) {}
 
-  @Get('reception')
-  getAllReceptionReports(@Query() filters: any) {
-    return this.reportsService.getAllReceptionReports(filters);
+  @Get()
+  getAllReports(@Query() filters: any) {
+    return this.reportsService.getAllReports(filters);
+  }
+
+  @Get(':id/excel')
+  async exportToExcel(@Param('id') id: string, @Res() res) {
+    const buffer = await this.reportsService.exportToExcel(id);
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename=report-${id}.xlsx`,
+    });
+    res.send(buffer);
+  }
+
+  @Get(':id/pdf')
+  async exportToPDF(@Param('id') id: string, @Res() res) {
+    const buffer = await this.reportsService.exportToPDF(id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=report-${id}.pdf`,
+    });
+    res.send(buffer);
   }
 
   @Get('delivery')
@@ -30,45 +39,8 @@ export class ReportsController {
     return this.reportsService.getAllDeliveryReports(filters);
   }
 
-  @Post('reception/:id/pdf')
-  @UseGuards(JwtAuthGuard)
-  async downloadPDF(
-    @Param('id') id: string,
-    @Request() req: AuthenticatedRequest,
-    @Body()
-    additionalData: {
-      warehouseManager: string;
-      transporterName: string;
-      transporterPlate: string;
-      transporterCI: string;
-      signature: string;
-    },
-    @Res() res: Response,
-  ) {
-    // Obtener el nombre completo del usuario usando el servicio de autenticación
-    const userName = await this.authService.getCurrentUserName(req.user.id);
-    const dataWithReceptor = {
-      ...additionalData,
-      receptor: userName
-    };
-    const buffer = await this.reportsService.exportToPDF(id, dataWithReceptor,req.user);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=informe-recepcion-${id}.pdf`,
-      'Content-Length': buffer.length,
-    });
-    res.end(buffer);
-  }
-
-  @Get('reception/:id/excel')
-  async downloadExcel(@Param('id') id: string, @Res() res: Response) {
-    const buffer = await this.reportsService.exportToExcel(id);
-    res.set({
-      'Content-Type':
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename=informe-recepcion-${id}.xlsx`,
-      'Content-Length': buffer.length,
-    });
-    res.end(buffer);
+  @Get('reception')
+  getAllReceptionReports(@Query() filters: any) {
+    return this.reportsService.getAllReceptionReports(filters);
   }
 }

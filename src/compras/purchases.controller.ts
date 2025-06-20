@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Controller, Post, Body, Put, Param } from '@nestjs/common';
 import { PurchasesService } from './purchases.service';
 import { Purchase } from './entity/purchase.entity';

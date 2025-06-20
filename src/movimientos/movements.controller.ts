@@ -1,52 +1,21 @@
-import {
-  Controller,
-  Post,
-  Body,
-  Get,
-  Query,
-  BadRequestException,
-} from '@nestjs/common';
+import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { MovementsService } from './movements.service';
 import { FilterMovementDto } from './dtos/filter-movements.dto';
-import { Inject, forwardRef } from '@nestjs/common';
-import { PurchasesService } from '../compras/purchases.service';
-import { Movement } from './entity/movement.entity';
 
 @Controller('movements')
 export class MovementsController {
-  constructor(
-    private readonly movementsService: MovementsService,
-    @Inject(forwardRef(() => PurchasesService))
-    private readonly purchasesService: PurchasesService,
-  ) {}
+  constructor(private readonly movementsService: MovementsService) {}
 
   @Post('return')
-  async createReturn(
-    @Body() body: { purchaseId: string; reason: string },
-  ): Promise<Movement> {
-    const purchase = await this.purchasesService.findOne(body.purchaseId);
-    if (!purchase) {
-      throw new BadRequestException('Purchase not found');
-    }
-    if (!purchase.products || purchase.products.length === 0) {
-      throw new BadRequestException('Purchase has no products');
-    }
-    return this.movementsService.createMovement({
-      movementData: {
-        type: 'return',
-        productCode: purchase.products[0].code,
-        quantity: purchase.products[0].quantity,
-        purchase,
-        reason: body.reason,
-      },
-    });
+  createReturn(@Body() body: { purchaseId: string; reason: string }) {
+    return this.movementsService.createReturn(body.purchaseId, body.reason);
   }
 
   @Post('exit')
-  async createExit(
+  createExit(
     @Body() body: { productCode: string; quantity: number; label: string },
   ) {
-    return this.movementsService.createMovement({
+    return this.movementsService.registerExit({
       movementData: {
         type: 'exit',
         productCode: body.productCode,
@@ -57,12 +26,12 @@ export class MovementsController {
   }
 
   @Get()
-  async findAll(@Query() filters: FilterMovementDto) {
+  findAll(@Query() filters: FilterMovementDto) {
     return this.movementsService.findAll(filters);
   }
 
   @Post('direct-entry')
-  async createDirectEntry(
+  createDirectEntry(
     @Body()
     body: {
       productCode: string;
@@ -72,13 +41,12 @@ export class MovementsController {
       label?: string;
     },
   ) {
-    return this.movementsService.createMovement({
-      movementData: {
-        type: 'direct-entry',
-        productCode: body.productCode,
-        quantity: body.quantity,
-        label: body.label,
-      },
-    });
+    return this.movementsService.registerDirectEntry(
+      body.productCode,
+      body.productName,
+      body.productDescription,
+      body.quantity,
+      body.label,
+    );
   }
 }
