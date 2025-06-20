@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
-import { Controller, Post, Body, Patch, UseGuards, Request, UseInterceptors, UploadedFile, HttpCode, Get } from '@nestjs/common';
+import { Controller, Post, Body, Patch, UseGuards,Put, Request, UseInterceptors, UploadedFile, HttpCode, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -61,8 +61,10 @@ export class AuthController {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
+ 
+
   @UseGuards(JwtAuthGuard)
-  @Patch()
+  @Put('update')
   updateProfile(@Request() req, @Body() updateProfileDto: UpdateProfileDto) {
     return this.authService.updateProfile(req.user.sub, updateProfileDto);
   }
