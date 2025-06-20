@@ -38,15 +38,21 @@ export class InventoryService {
       throw new Error('La cantidad debe ser un número válido');
     }
 
+    // Actualizar entries o exits según el tipo
     if (type === 'entry') {
       inventory.entries = Number(inventory.entries) + validQuantity;
     } else if (type === 'exit' || type === 'return') {
-      inventory.exits = Number(inventory.exits) - validQuantity; // Negativo para restar
+      inventory.exits = Number(inventory.exits) + validQuantity; // Sumar en positivo
     }
 
-    // Recalcular stock asegurando que sean números
+    // Calcular stock: entradas menos salidas
     inventory.stock = Number(inventory.entries) - Number(inventory.exits);
-    
+
+    // Validar que el stock no sea negativo
+    if (inventory.stock < 0) {
+      throw new Error(`Stock insuficiente para el producto ${productCode}. Stock actual: ${inventory.stock + validQuantity}, cantidad solicitada: ${validQuantity}`);
+    }
+
     return this.inventoryRepository.save(inventory);
   }
 
