@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -27,15 +28,22 @@ export class PurchasesService {
   ) {}
 
   async createPurchase(purchaseData: any): Promise<Purchase> {
-    // Guardar la compra en la base de datos
-    const savedPurchase = await this.purchasesRepository.save(purchaseData);
-
-    // Generar informe de recepción
-    await this.reportsService.createReceptionReport(savedPurchase);
-
-    // Registrar movimientos de entrada y asegurar producto en inventario
+    // Validate amount for each product
     for (const product of purchaseData.products) {
-      // 1. Buscar o crear el producto en inventario por su código
+      const expectedAmount = product.quantity * product.unitPrice;
+      if (product.amount !== expectedAmount) {
+        throw new Error(`Invalid amount for product ${product.code}. Expected ${expectedAmount}, got ${product.amount}`);
+      }
+    }
+  
+    // Proceed with saving the purchase
+    const savedPurchase = await this.purchasesRepository.save(purchaseData);
+  
+    // Generate reception report
+    await this.reportsService.createReceptionReport(savedPurchase);
+  
+    // Register movements and update inventory
+    for (const product of purchaseData.products) {
       let inventoryProduct = await this.inventoryService
         .findByCode(product.code)
         .catch(() => null);
@@ -45,8 +53,7 @@ export class PurchasesService {
           product.description,
         );
       }
-
-      // 2. Registrar el movimiento de entrada
+  
       await this.movementsService.createMovement({
         movementData: {
           type: 'entry',
@@ -55,8 +62,7 @@ export class PurchasesService {
           purchase: savedPurchase,
         },
       });
-
-      // 3. Actualizar inventario
+  
       await this.inventoryService.updateInventory(
         product.code,
         product.description,
@@ -64,7 +70,7 @@ export class PurchasesService {
         'entry',
       );
     }
-
+  
     return savedPurchase;
   }
 
