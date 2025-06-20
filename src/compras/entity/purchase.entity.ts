@@ -5,11 +5,9 @@ import {
   CreateDateColumn,
   PrimaryGeneratedColumn,
   OneToMany,
-  OneToOne,
 } from 'typeorm';
 import { PurchaseProduct } from './purchase-product.entity';
 import { ReceptionReport } from '../../reportes/reception-report.entity';
-import { DeliveryReport } from '../../DeliveryReport/delivery-report.entity';
 
 @Entity()
 export class Purchase {
@@ -32,9 +30,6 @@ export class Purchase {
     cascade: true,
   })
   products: PurchaseProduct[];
-
-  @OneToOne(() => DeliveryReport, (deliveryReport) => deliveryReport.purchase)
-  deliveryReport: DeliveryReport;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
