@@ -28,52 +28,62 @@ export class PurchasesService {
   ) {}
 
   async createPurchase(purchaseData: any): Promise<Purchase> {
-    // Validate amount for each product
-    for (const product of purchaseData.products) {
-      const expectedAmount = product.quantity * product.unitPrice;
-      if (product.amount !== expectedAmount) {
-        throw new Error(`Invalid amount for product ${product.code}. Expected ${expectedAmount}, got ${product.amount}`);
+    try {
+      // Validar amount y transformar expirationDate
+      for (const product of purchaseData.products) {
+        const expectedAmount = product.quantity * product.unitPrice;
+        if (product.amount !== expectedAmount) {
+          throw new Error(`Invalid amount for product ${product.code}. Expected ${expectedAmount}, got ${product.amount}`);
+        }
+        // Transformar expirationDate: cadena vacía o inválida a null
+        if (!product.expirationDate || product.expirationDate === '' || isNaN(new Date(product.expirationDate).getTime())) {
+          product.expirationDate = null;
+        } else {
+          product.expirationDate = new Date(product.expirationDate);
+        }
       }
-    }
-  
-    // Proceed with saving the purchase
-    const savedPurchase = await this.purchasesRepository.save(purchaseData);
-  
-    // Generate reception report
-    await this.reportsService.createReceptionReport(savedPurchase);
-  
-    // Register movements and update inventory
-    for (const product of purchaseData.products) {
-      let inventoryProduct = await this.inventoryService
-        .findByCode(product.code)
-        .catch(() => null);
-      if (!inventoryProduct) {
-        inventoryProduct = await this.inventoryService.createProductIfNotExists(
+
+      // Guardar la compra en la base de datos
+      const savedPurchase = await this.purchasesRepository.save(purchaseData);
+
+      // Generar informe de recepción
+      await this.reportsService.createReceptionReport(savedPurchase);
+
+      // Registrar movimientos de entrada y asegurar producto en inventario
+      for (const product of purchaseData.products) {
+        let inventoryProduct = await this.inventoryService
+          .findByCode(product.code)
+          .catch(() => null);
+        if (!inventoryProduct) {
+          inventoryProduct = await this.inventoryService.createProductIfNotExists(
+            product.code,
+            product.description,
+          );
+        }
+
+        await this.movementsService.createMovement({
+          movementData: {
+            type: 'entry',
+            productCode: inventoryProduct.productCode,
+            quantity: product.quantity,
+            purchase: savedPurchase,
+          },
+        });
+
+        await this.inventoryService.updateInventory(
           product.code,
           product.description,
+          product.quantity,
+          'entry',
         );
       }
-  
-      await this.movementsService.createMovement({
-        movementData: {
-          type: 'entry',
-          productCode: inventoryProduct.productCode,
-          quantity: product.quantity,
-          purchase: savedPurchase,
-        },
-      });
-  
-      await this.inventoryService.updateInventory(
-        product.code,
-        product.description,
-        product.quantity,
-        'entry',
-      );
-    }
-  
-    return savedPurchase;
-  }
 
+      return savedPurchase;
+    } catch (error) {
+      console.error('Error in createPurchase:', error);
+      throw new Error(`Failed to create purchase: ${error.message}`);
+    }
+  }
   async findOne(id: string): Promise<Purchase> {
     const purchase = await this.purchasesRepository.findOne({
       where: { id },
