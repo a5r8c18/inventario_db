@@ -245,7 +245,7 @@ export class AuthService {
 
     // Generar un nombre de archivo único
     const filename = `${uuidv4()}${extname(file.originalname)}`;
-    const avatarUrl = `http://localhost:3000/uploads/${filename}`; // Ajustar según la configuración del servidor
+    const avatarUrl = `https://inventario-db.onrender.com/uploads/${filename}`; // Ajustar según la configuración del servidor
 
     // El archivo ya está guardado por Multer, solo actualiza la URL del avatar
     user.avatar = avatarUrl;
