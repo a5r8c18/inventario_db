@@ -158,8 +158,12 @@ export class MovementsService {
   }
 
   async findAll(filters: FilterMovementDto): Promise<Movement[]> {
-    const queryBuilder = this.movementsRepository.createQueryBuilder('movement');
-    queryBuilder.leftJoinAndSelect('movement.product', 'product');
+    const queryBuilder = this.movementsRepository
+      .createQueryBuilder('movement')
+      .leftJoinAndSelect('movement.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.unit', 'unit')
+      .leftJoinAndSelect('movement.purchase', 'purchase');
 
     // Filter by date range
     if (filters.fromDate) {
