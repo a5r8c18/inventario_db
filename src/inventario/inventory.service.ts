@@ -41,8 +41,10 @@ export class InventoryService {
     // Actualizar entries o exits según el tipo
     if (type === 'entry') {
       inventory.entries = Number(inventory.entries) + validQuantity;
-    } else if (type === 'exit' || type === 'return') {
-      inventory.exits = Number(inventory.exits) + validQuantity; // Sumar en positivo
+    } else if (type === 'exit') {
+      inventory.exits = Number(inventory.exits) + validQuantity;
+    } else if (type === 'return') {
+      inventory.exits = Number(inventory.exits) - validQuantity; // Restar en devoluciones
     }
 
     // Calcular stock: entradas menos salidas
