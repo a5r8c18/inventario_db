@@ -161,7 +161,6 @@ export class MovementsService {
     const queryBuilder = this.movementsRepository
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
-      .leftJoinAndSelect('product.unit', 'unit')
       .leftJoinAndSelect('movement.purchase', 'purchase');
 
     // Filter by date range
